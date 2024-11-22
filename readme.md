@@ -28,8 +28,10 @@ git clone https://github.com/<your-username>/qa-tool.git
 cd qa-tool
 ```
 
-2. Install dependencies:
+2. Create virtual environment and install dependencies:
 ```
+python -m venv your-virtual-env
+source your-virtual-env/bin/activate
 pip install -r requirements.txt
 ```
 
@@ -43,7 +45,6 @@ streamlit run qa_tool_app.py
 
 ## Contributions 💡
 Contributions, suggestions, and feature requests are welcome! Feel free to open issues or submit pull requests.
-
 ## License 📜
 This project is open-source and available under the MIT License.
 
