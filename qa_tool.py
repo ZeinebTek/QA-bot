@@ -111,6 +111,16 @@ class QATool:
     def keyword_overlap( query: str, candidate: str) -> float:
         """Calculates the keyword overlap ratio between query and candidate."""
         return SequenceMatcher(None, query, candidate).ratio()
+    @staticmethod
+    def split_text_into_chunks(text: str, chunk_size: int, overlap: int) -> list:
+        """Split text into chunks with a specified overlap."""
+        chunks = []
+        start = 0
+        while start < len(text):
+            end = start + chunk_size
+            chunks.append(text[start:end])
+            start += chunk_size - overlap
+        return chunks
 
     @staticmethod
     @tool(args_schema=SearchDocumentInput)
@@ -123,60 +133,69 @@ class QATool:
                 documents = QATool.load_document(file_path)
                 all_documents.extend(documents)
             
-            texts = [doc.page_content for doc in all_documents]
-
+            chunk_size = 1000
+            overlap = 200
+            # Process texts as chunks with overlap
+            chunks = []
+            for document in all_documents:
+                text = document.page_content
+                chunks.extend(QATool.split_text_into_chunks(text, chunk_size, overlap))
             # Create dense embeddings with SentenceTransformer
             embedding_model = SentenceTransformer("all-mpnet-base-v2")
-            dense_embeddings = embedding_model.encode(texts)
+            dense_embeddings = embedding_model.encode(chunks)
             query_embedding = embedding_model.encode(query)
 
             # Perform dense similarity search
             dense_results = [
-                (doc, 1 - cosine(query_embedding, doc_embedding))
-                for doc, doc_embedding in zip(all_documents, dense_embeddings)
+                (chunk, 1 - cosine(query_embedding, doc_embedding))
+                for chunk, doc_embedding in zip(chunks, dense_embeddings)
             ]
-            dense_results = sorted(dense_results, key=lambda x: -x[1])[:7]
+            dense_results = sorted(dense_results, key=lambda x: -x[1])
+            #print("Dense Result", dense_results)
 
             # Sparse retrieval using BM25
-            bm25 = BM25Okapi([text.split() for text in texts])
+            bm25 = BM25Okapi([chunk.split() for chunk in chunks])
             sparse_scores = bm25.get_scores(query.split())
             sparse_results = sorted(
                 zip(all_documents, sparse_scores), key=lambda x: x[1], reverse=True
-            )[:5]
-
+            )
+            #print("\n")
+            #print("Sparse Result", sparse_results)
             # Combine dense and sparse results
             hybrid_results = []
             for dense_result in dense_results:
                 dense_doc, dense_score = dense_result
                 sparse_score = next(
-                    (score for doc, score in sparse_results if doc.page_content == dense_doc.page_content),
+                    (score for chunk, score in sparse_results if chunk == dense_doc),
                     0,
                 )
-                keyword_score = QATool.keyword_overlap(query, dense_doc.page_content)
+                keyword_score = QATool.keyword_overlap(query, dense_doc)
                 hybrid_results.append((dense_doc, dense_score, sparse_score, keyword_score))
-
+        
+                
             # Weighted scoring
             hybrid_results = [
-                (doc, 0.5 * dense_score + 0.3 * sparse_score + 0.2 * keyword_score)
+                (doc, 0.7 * dense_score + 0.2 * sparse_score + 0.1 * keyword_score)
                 for doc, dense_score, sparse_score, keyword_score in hybrid_results
             ]
-
+            #print("\n")
+            #print("Hybrid Result", hybrid_results)
             # Sort hybrid results by weighted score
             sorted_results = sorted(hybrid_results, key=lambda x: -x[1])
-
+            #print("\n")
             # Aggregate relevant chunks
             aggregated_content = ""
-            threshold = 0.2  # Aggregation threshold
-            for doc, score in sorted_results:
-                if score >= threshold:
-                    aggregated_content += doc.page_content + "\n\n"
+            threshold = 0.3  # Aggregation threshold
+            for chunk, score in sorted_results:
+                if abs(score) <= threshold:
+                    aggregated_content += chunk+ "\n\n"
 
             # Validate and summarize aggregated content
             if aggregated_content.strip():
                 if QATool.validate_result(query, aggregated_content):
                     # Summarize aggregated content
                     llm = ChatGoogleGenerativeAI(model="models/gemini-1.5-flash-002", temperature=0.7)
-                    summary = llm.invoke(f"Summarize this content: {aggregated_content}")
+                    summary = llm.invoke(f"Summarize this content: {aggregated_content} with a special focus on the answer to this question:  {query}.")
                     return summary
 
             return "No relevant information found in the documents."
@@ -302,17 +321,10 @@ class QATool:
 """
 # Usage Example
 tool = QATool()
-question = "exchange rate in Tunisia?"
+question = "Hello, can you tell me the name of the techniques implemented in this report?"
 document_paths = [
-    "/Users/zeinebtekaya/Desktop/IIA 5/Afef/EV & Retrofit.pdf",
-    "/Users/zeinebtekaya/Desktop/IIA 4/S1/Anglais/Writing an impressive CV.pdf"
+    "/Users/zeinebtekaya/Desktop/IIA 5/Rapport_Stage/RapportFinal.pdf"
 ]
 answer = tool.get_answer(question, document_paths)
 print(answer)
-
-question="hello, my name is Sam"
-answer = tool.get_answer(question)
-print(answer)
-question="what is my name?"
-answer = tool.get_answer(question)
-print(answer)"""
+"""
