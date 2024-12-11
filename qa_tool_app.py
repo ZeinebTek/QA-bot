@@ -334,7 +334,6 @@ if st.session_state.waiting_for_response:
     st.session_state.chat_history.append({"role": "bot", "message": answer})
     st.session_state.waiting_for_response = False
     st.rerun()
-    st.stop()
 st.markdown('</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
