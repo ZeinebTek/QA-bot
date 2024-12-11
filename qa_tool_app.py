@@ -4,7 +4,8 @@ from pathlib import Path
 from qa_tool import QATool 
 
 # Initialize the QATool instance
-qa_tool = QATool()
+if "qa_tool" not in st.session_state:
+    st.session_state.qa_tool = QATool()
 
 
 # Sidebar for document uploads
@@ -276,7 +277,6 @@ for chat in st.session_state.chat_history:
         """, unsafe_allow_html=True)
 
 # Show typing indicator
-# Add typing indicator when waiting for response
 if st.session_state.waiting_for_response:
     st.markdown("""
         <div class='message-container bot-message'>
@@ -326,9 +326,10 @@ if st.session_state.waiting_for_response:
                 document_paths.append(str(file_path.absolute()))
             else:
                 st.error(f"Failed to save file: {file.name}")
+
     
     with st.spinner(text=''):
-        answer = qa_tool.get_answer(st.session_state.chat_history[-1]["message"], document_paths)
+        answer = st.session_state.qa_tool.get_answer(st.session_state.chat_history[-1]["message"], document_paths)
         answer = answer.replace("Answer:", "", 1).strip()
     
     st.session_state.chat_history.append({"role": "bot", "message": answer})

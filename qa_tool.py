@@ -321,10 +321,12 @@ class QATool:
 """
 # Usage Example
 tool = QATool()
-question = "Hello, can you tell me the name of the techniques implemented in this report?"
+question = "Hello, my name is zeineb"
 document_paths = [
     "/Users/zeinebtekaya/Desktop/IIA 5/Rapport_Stage/RapportFinal.pdf"
 ]
 answer = tool.get_answer(question, document_paths)
 print(answer)
-"""
+question = "what is my name ?"
+answer = tool.get_answer(question, document_paths)
+print(answer)"""
